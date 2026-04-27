@@ -26,6 +26,13 @@ import AIGirlGenerator from './pages/AIGirlGenerator'
 import AIGirlGallery from './pages/AIGirlGallery'
 import AIGirlOutfitSwap from './pages/AIGirlOutfitSwap'
 import Settings from './pages/Settings'
+import Magic5 from './pages/Magic5'
+import ChatPage from './pages/ChatPage'
+import AnalyticsPage from './pages/AnalyticsPage'
+import Tutorials from './pages/Tutorials'
+import VoiceGenerator from './pages/VoiceGenerator'
+import Music from './pages/Music'
+import Avatar from './pages/Avatar'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -59,6 +66,13 @@ function App() {
             <Route path="/ai-girl-generator" element={<AIGirlGenerator />} />
             <Route path="/ai-girl-gallery" element={<AIGirlGallery />} />
             <Route path="/ai-girl-outfit-swap" element={<AIGirlOutfitSwap />} />
+            <Route path="/magic5" element={<Magic5 />} />
+            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/tutorials" element={<Tutorials />} />
+            <Route path="/voice-generator" element={<VoiceGenerator />} />
+            <Route path="/music" element={<Music />} />
+            <Route path="/avatar" element={<Avatar />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Route>

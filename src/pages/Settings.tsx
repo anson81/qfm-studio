@@ -26,6 +26,7 @@ export default function Settings() {
     if (data) {
       setProfile(data)
       setKieKey(data.kie_api_key || '')
+      if (data.kie_api_key) localStorage.setItem('kie_api_key', data.kie_api_key)
     }
     try {
       const res = await supabase.functions.invoke('kie-balance')
@@ -41,7 +42,7 @@ export default function Settings() {
       updated_at: new Date().toISOString(),
     })
     if (error) { toast.error('Save failed'); console.error(error) }
-    else { toast.success('Settings saved'); localStorage.setItem('kie_api_key', kieKey) }
+    else { toast.success('Settings saved'); localStorage.setItem('kie_api_key', kieKey); if (kieKey) localStorage.setItem('qfm_kie_key', kieKey) }
     setSaving(false)
   }
 
