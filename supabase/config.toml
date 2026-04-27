@@ -1,0 +1,10 @@
+# For more info see: https://supabase.com/docs/guides/functions
+[functions]
+[functions.generate-image]
+verify_jwt = true
+[functions.generate-video]
+verify_jwt = true
+[functions.kie-balance]
+verify_jwt = true
+[functions.ai-chat]
+verify_jwt = true

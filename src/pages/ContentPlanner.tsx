@@ -1,0 +1,1 @@
+export default function ContentPlanner() { return <div className="space-y-6"><h1 className="text-3xl font-bold">AI Content Planner</h1><p className="text-muted-foreground">Plan your content calendar with AI. Coming soon.</p></div> }

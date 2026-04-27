@@ -1,0 +1,1 @@
+export default function AutoPostBot() { return <div className="space-y-6"><h1 className="text-3xl font-bold">AutoPost Bot</h1><p className="text-muted-foreground">Schedule and auto-post to TikTok/IG. Coming soon.</p></div> }

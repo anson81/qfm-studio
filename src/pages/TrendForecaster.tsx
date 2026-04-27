@@ -1,0 +1,1 @@
+export default function TrendForecaster() { return <div className="space-y-6"><h1 className="text-3xl font-bold">Trend Forecaster</h1><p className="text-muted-foreground">AI-powered trend prediction for your niche. Coming soon.</p></div> }

@@ -1,0 +1,1 @@
+export default function ImageEditor() { return <div className="space-y-6"><h1 className="text-3xl font-bold">Image Editor</h1><p className="text-muted-foreground">Edit and refine generated images. Coming soon.</p></div> }
