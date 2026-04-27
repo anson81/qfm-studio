@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { apiClient } from '../lib/api'
 import { Button } from '../components/ui/Button'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Video, Image, Wand2, FolderOpen, TrendingUp, Zap } from 'lucide-react'
@@ -14,11 +14,15 @@ const quickActions = [
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
-  const [stats, setStats] = useState({ videos: 0, images: 0, storage: 0 })
+  const [stats, setStats] = useState({ videos: 0, images: 0, total: 0 })
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
-    // TODO: load real stats from content table
+    apiClient.me().then(setUser).catch(() => {})
+    apiClient.listContent().then(items => {
+      const videos = items.filter((i: any) => i.type === 'video' && i.status === 'completed').length
+      const images = items.filter((i: any) => i.type === 'image' && i.status === 'completed').length
+      setStats({ videos, images, total: items.length })
+    }).catch(() => {})
   }, [])
 
   return (
@@ -28,7 +32,7 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold">Welcome back
             {user?.email ? <span className="text-muted-foreground text-lg font-normal ml-2">{user.email.split('@')[0]}</span> : null}
           </h1>
-          <p className="text-muted-foreground">Here&apos;s what&apos;s happening with your content creation</p>
+          <p className="text-muted-foreground">Here's what's happening with your content creation</p>
         </div>
         <Link to="/video-generator">
           <Button><Zap className="w-4 h-4 mr-2" />Create Content</Button>
@@ -67,17 +71,15 @@ export default function Dashboard() {
                 <p className="text-sm text-muted-foreground">Images</p>
               </div>
               <div className="p-4 rounded-lg bg-muted">
-                <p className="text-3xl font-bold">{stats.storage}</p>
-                <p className="text-sm text-muted-foreground">MB Used</p>
+                <p className="text-3xl font-bold">{stats.total}</p>
+                <p className="text-sm text-muted-foreground">Total</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Quick Setup</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Quick Setup</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-3 text-sm">
               <div className="w-2 h-2 rounded-full bg-red-500" />

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { apiClient, setToken } from '../lib/api'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { toast } from 'sonner'
@@ -15,14 +15,14 @@ export default function Login() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
-    if (error) {
-      toast.error(error.message)
-    } else {
+    try {
+      const res = await apiClient.login(email, password)
+      setToken(res.access_token)
       toast.success('Welcome back!')
       navigate('/')
-    }
+    } catch (err: any) {
+      toast.error(err.message || 'Login failed')
+    } finally { setLoading(false) }
   }
 
   return (

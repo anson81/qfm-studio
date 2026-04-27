@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
+import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { toast } from 'sonner'
+import { apiClient } from '../lib/api'
 import { Search, Download, Trash2, Loader2 } from 'lucide-react'
 
 export default function ContentLibrary() {
@@ -11,31 +11,65 @@ export default function ContentLibrary() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('all')
-  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setUser(data.session.user)
-        fetchContent(data.session.user.id)
-      } else { setLoading(false) }
-    })
+    fetchContent()
   }, [])
 
-  async function fetchContent(uid: string) {
-    let q = supabase.from('content').select('*').eq('user_id', uid).order('created_at', { ascending: false })
-    const { data, error } = await q
-    if (error) { toast.error('Failed to load content'); console.error(error) }
-    else setContent(data || [])
-    setLoading(false)
+  async function fetchContent() {
+    setLoading(true)
+    try {
+      const data = await apiClient.listContent()
+      setContent(data || [])
+    } catch (err: any) { toast.error('Failed to load content') }
+    finally { setLoading(false) }
   }
-  
-  async function deleteItem(id: string) {
+
+  async function deleteItem(id: number) {
     if (!confirm('Delete this item?')) return
-    const { error } = await supabase.from('content').delete().eq('id', id)
-    if (error) toast.error('Delete failed')
-    else { setContent(prev => prev.filter(c => c.id !== id)); toast.success('Deleted') }
+    try {
+      await apiClient.deleteContent(id)
+      setContent(prev => prev.filter(c => c.id !== id))
+      toast.success('Deleted')
+    } catch { toast.error('Delete failed') }
   }
+
+  async function refreshStatuses() {
+    const processing = content.filter(c => c.status === 'processing' && c.kie_task_id)
+    if (processing.length === 0) return
+    try {
+      const taskIds = processing.map(c => c.kie_task_id)
+      const videoIds = processing.filter(c => c.type === 'video' && c.kie_task_id).map(c => c.kie_task_id)
+      const imageIds = processing.filter(c => c.type === 'image' && c.kie_task_id).map(c => c.kie_task_id)
+
+      let updates: Record<string, any> = {}
+      if (videoIds.length > 0) {
+        const v = await apiClient.videoStatus(videoIds)
+        if (typeof v === 'object') Object.assign(updates, v)
+      }
+      if (imageIds.length > 0) {
+        const i = await apiClient.imageStatus(imageIds)
+        if (typeof i === 'object') Object.assign(updates, i)
+      }
+
+      setContent(prev => prev.map(c => {
+        if (!c.kie_task_id) return c
+        const st = updates[c.kie_task_id]
+        if (!st) return c
+        if (st.status === 'completed' && st.url) {
+          return { ...c, status: 'completed', result_url: st.url }
+        } else if (st.status === 'failed') {
+          return { ...c, status: 'failed' }
+        }
+        return c
+      }))
+    } catch { /* ignore */ }
+  }
+
+  useEffect(() => {
+    const iv = setInterval(refreshStatuses, 5000)
+    return () => clearInterval(iv)
+  }, [content])
 
   const filtered = content.filter(c => {
     if (filterType !== 'all' && c.type !== filterType) return false
@@ -82,7 +116,7 @@ export default function ContentLibrary() {
                   <span className={`text-xs px-2 py-1 rounded ${item.status === 'completed' ? 'bg-green-100 text-green-700' : item.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{item.status}</span>
                 </div>
                 <p className="text-sm font-medium line-clamp-2 mb-2">{item.prompt}</p>
-                <p className="text-xs text-muted-foreground mb-3">{item.model}{item.aspect_ratio ? ` • ${item.aspect_ratio}` : ''}</p>
+                <p className="text-xs text-muted-foreground mb-3">{item.model}{item.aspect_ratio ? ` · ${item.aspect_ratio}` : ''}</p>
                 <div className="flex gap-2">
                   {item.result_url && <Button variant="outline" size="sm" onClick={() => window.open(item.result_url, '_blank')}><Download className="w-3 h-3" /></Button>}
                   <Button variant="outline" size="sm" className="text-red-500" onClick={() => deleteItem(item.id)}><Trash2 className="w-3 h-3" /></Button>
