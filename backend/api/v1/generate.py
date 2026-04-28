@@ -13,7 +13,10 @@ router = APIRouter(prefix="/generate", tags=["Generate"])
 def get_kie_client(user: User) -> KIEClient:
     if not user.kie_api_key_encrypted:
         raise HTTPException(status_code=400, detail="KIE.AI API key not configured. Add it in Settings.")
-    key = decrypt_value(user.kie_api_key_encrypted)
+    try:
+        key = decrypt_value(user.kie_api_key_encrypted)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to decrypt API key. Please re-enter it in Settings.")
     return KIEClient(key)
 
 async def save_content(db: Session, user_id: int, content_type: str, prompt: str, model: str, aspect_ratio: str, task_id: str):
@@ -36,7 +39,7 @@ async def generate_video(data: GenerateVideoIn, db: Session = Depends(get_db), c
     )
     task_id = result.get("task_id") or result.get("id")
     if not task_id:
-        raise HTTPException(status_code=500, detail="No task_id received from KIE.AI")
+        raise HTTPException(status_code=500, detail=f"No task_id received from KIE.AI. Response: {result}")
     item = await save_content(db, current_user.id, "video", data.prompt, data.model, data.aspect_ratio, task_id)
     return {"task_id": task_id, "content_id": item.id, "status": "processing"}
 
@@ -49,12 +52,12 @@ async def generate_image(data: GenerateImageIn, db: Session = Depends(get_db), c
     )
     task_id = result.get("task_id") or result.get("id")
     if not task_id:
-        raise HTTPException(status_code=500, detail="No task_id received from KIE.AI")
+        raise HTTPException(status_code=500, detail=f"No task_id received from KIE.AI. Response: {result}")
     item = await save_content(db, current_user.id, "image", data.prompt, data.model, data.aspect_ratio, task_id)
     return {"task_id": task_id, "content_id": item.id, "status": "processing"}
 
 @router.post("/text")
-async def generate_text(data: GenerateTextIn, current_user: User = Depends(get_current_user)):
+async def generate_text(data: GenerateTextIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     client = get_kie_client(current_user)
     result = await client.chat_completion(
         messages=[
@@ -63,7 +66,16 @@ async def generate_text(data: GenerateTextIn, current_user: User = Depends(get_c
         ],
         model=data.model,
     )
-    return {"result": result}
+    # Save text generations too
+    text_content = result.get("choices", [{}])[0].get("message", {}).get("content", str(result))
+    item = Content(
+        user_id=current_user.id, type="text", prompt=data.user_message,
+        model=data.model, status="completed", result_url=text_content[:500]
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return {"result": result, "content_id": item.id}
 
 @router.post("/video/status")
 async def video_status(data: StatusCheckIn, current_user: User = Depends(get_current_user)):
