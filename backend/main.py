@@ -46,14 +46,14 @@ async def health():
 static_dir = os.path.join(os.path.dirname(__file__), "../apps/web/dist")
 static_assets = os.path.join(static_dir, "assets")
 
-# Serve assets directly
+# Serve assets at both /assets/ and /qfm-studio/assets/ (for GitHub Pages base path)
 if os.path.exists(static_assets):
-    app.mount("/assets", StaticFiles(directory=static_assets), name="assets")
+    app.mount("/qfm-studio/assets", StaticFiles(directory=static_assets), name="assets-gh")
+    app.mount("/assets", StaticFiles(directory=static_assets), name="assets-local")
 
-# SPA catch-all — return 404 for unknown routes, not 200
+# SPA catch-all — serve index.html for non-API routes
 @app.get("/{path:path}")
 async def serve_spa(path: str, request: Request):
-    # Only serve index.html for non-API, non-asset routes
     if path.startswith("api/"):
         return JSONResponse(status_code=404, content={"error": "not found"})
     index_path = os.path.join(static_dir, "index.html")

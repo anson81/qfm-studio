@@ -1,15 +1,33 @@
-from pydantic import BaseModel, EmailStr, Field
+import re
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from typing import Optional, List
 
+# Simple email regex — avoids the need for the email-validator package
+EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+
 class UserRegister(BaseModel):
-    email: EmailStr
+    email: str = Field(..., description="User email address")
     password: str = Field(..., min_length=6)
     full_name: Optional[str] = None
 
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        if not EMAIL_REGEX.match(v):
+            raise ValueError('Invalid email address')
+        return v.lower().strip()
+
 class UserLogin(BaseModel):
-    email: EmailStr
+    email: str = Field(..., description="User email address")
     password: str
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        if not EMAIL_REGEX.match(v):
+            raise ValueError('Invalid email address')
+        return v.lower().strip()
 
 class Token(BaseModel):
     access_token: str

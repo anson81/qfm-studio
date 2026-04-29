@@ -1,0 +1,22 @@
+# QFM Studio Backend - Docker Compose for Synology NAS
+version: "3.8"
+
+services:
+  qfm-api:
+    build: .
+    container_name: qfm-studio-api
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist the database so data survives container restarts
+      - qfm-data:/app/data
+    environment:
+      - SECRET_KEY=omBCMT...Mi1g
+      - CIPHER_KEY=kro0aSM_ZpH_6Jtbqfx7XGWmnAqHx3K8wSg0Ga5otrs
+      - DATABASE_URL=sqlite:////app/data/qfm.db
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://localhost:8000,https://anson81.github.io
+      - KIE_BASE_URL=https://api.kie.ai
+
+volumes:
+  qfm-data:
