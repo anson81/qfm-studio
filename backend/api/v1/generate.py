@@ -1,0 +1,112 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import List
+
+from models import get_db, User, Content
+from schemas import GenerateVideoIn, GenerateImageIn, GenerateTextIn, StatusCheckIn, ContentOut
+from auth import get_current_user
+from kie_client import KIEClient
+from crypto import decrypt_value
+
+router = APIRouter(prefix="/generate", tags=["Generate"])
+
+def get_kie_client(user: User) -> KIEClient:
+    if not user.kie_api_key_encrypted:
+        raise HTTPException(status_code=400, detail="KIE.AI API key not configured. Add it in Settings.")
+    try:
+        key = decrypt_value(user.kie_api_key_encrypted)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to decrypt API key. Please re-enter it in Settings.")
+    return KIEClient(key)
+
+async def save_content(db: Session, user_id: int, content_type: str, prompt: str, model: str, aspect_ratio: str, task_id: str):
+    item = Content(
+        user_id=user_id, type=content_type, prompt=prompt,
+        model=model, aspect_ratio=aspect_ratio,
+        status="processing", kie_task_id=task_id
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+@router.post("/video")
+async def generate_video(data: GenerateVideoIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    client = get_kie_client(current_user)
+    result = await client.generate_video(
+        prompt=data.prompt, model=data.model,
+        aspect_ratio=data.aspect_ratio, resolution=data.resolution, num_videos=data.num_videos
+    )
+    # KIE wraps responses in {"code":200,"msg":"success","data":{...}}
+    data_obj = result.get("data", result)
+    task_id = data_obj.get("taskId") or data_obj.get("task_id") or data_obj.get("id") or result.get("task_id") or result.get("id")
+    if not task_id:
+        raise HTTPException(status_code=500, detail=f"No task_id received from KIE.AI. Response: {result}")
+    item = await save_content(db, current_user.id, "video", data.prompt, data.model, data.aspect_ratio, task_id)
+    return {"task_id": task_id, "content_id": item.id, "status": "processing"}
+
+@router.post("/image")
+async def generate_image(data: GenerateImageIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    client = get_kie_client(current_user)
+    result = await client.generate_image(
+        prompt=data.prompt, model=data.model,
+        aspect_ratio=data.aspect_ratio, num_images=data.num_images
+    )
+    # KIE wraps responses in {"code":200,"msg":"success","data":{...}}
+    data_obj = result.get("data", result)
+    task_id = data_obj.get("taskId") or data_obj.get("task_id") or data_obj.get("id") or result.get("task_id") or result.get("id")
+    if not task_id:
+        raise HTTPException(status_code=500, detail=f"No task_id received from KIE.AI. Response: {result}")
+    item = await save_content(db, current_user.id, "image", data.prompt, data.model, data.aspect_ratio, task_id)
+    return {"task_id": task_id, "content_id": item.id, "status": "processing"}
+
+@router.post("/text")
+async def generate_text(data: GenerateTextIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    client = get_kie_client(current_user)
+    result = await client.chat_completion(
+        messages=[
+            {"role": "system", "content": data.system_prompt},
+            {"role": "user", "content": data.user_message},
+        ],
+        model=data.model,
+    )
+    # Save text generations too
+    text_content = result.get("choices", [{}])[0].get("message", {}).get("content", str(result))
+    item = Content(
+        user_id=current_user.id, type="text", prompt=data.user_message,
+        model=data.model, status="completed", result_url=text_content[:500]
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return {"result": result, "content_id": item.id}
+
+@router.post("/video/status")
+async def video_status(data: StatusCheckIn, current_user: User = Depends(get_current_user)):
+    client = get_kie_client(current_user)
+    return await client.check_video_status(data.task_ids)
+
+@router.post("/image/status")
+async def image_status(data: StatusCheckIn, current_user: User = Depends(get_current_user)):
+    client = get_kie_client(current_user)
+    return await client.check_image_status(data.task_ids)
+
+@router.get("/credits")
+async def get_credits(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    client = get_kie_client(current_user)
+    result = await client.get_credits()
+    # Update the user's credit_balance in the database from KIE.AI response
+    # KIE returns {"credit_balance": <number>} or similar
+    credit_balance = None
+    if isinstance(result, dict):
+        # Try common key names from KIE.AI credit response
+        credit_balance = result.get("credit_balance") or result.get("credits") or result.get("balance")
+    if credit_balance is not None:
+        current_user.credit_balance = float(credit_balance)
+        db.commit()
+        db.refresh(current_user)
+    return {
+        **result,
+        "credit_balance": current_user.credit_balance,
+        "kie_connected": True,
+    }
