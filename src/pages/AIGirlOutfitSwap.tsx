@@ -1,1 +1,0 @@
-export default function AIGirlOutfitSwap() { return <div className='space-y-6'><h1 className='text-3xl font-bold'>AI Girl Outfit Swap</h1><p className='text-muted-foreground'>Swap outfits on AI models. Coming soon.</p></div> }

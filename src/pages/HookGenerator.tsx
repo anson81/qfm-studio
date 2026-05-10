@@ -1,1 +1,0 @@
-export default function HookGenerator() { return <div className='space-y-6'><h1 className='text-3xl font-bold'>Hook Generator</h1><p className='text-muted-foreground'>Generate attention-grabbing hooks. Coming soon.</p></div> }

@@ -1,1 +1,0 @@
-export default function UGCGenerator() { return <div className='space-y-6'><h1 className='text-3xl font-bold'>UGC Generator</h1><p className='text-muted-foreground'>Generate UGC-style content. Coming soon.</p></div> }

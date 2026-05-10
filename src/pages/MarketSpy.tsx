@@ -1,1 +1,0 @@
-export default function MarketSpy() { return <div className='space-y-6'><h1 className='text-3xl font-bold'>TikTok Market Spy</h1><p className='text-muted-foreground'>Analyze competitors. Coming soon.</p></div> }

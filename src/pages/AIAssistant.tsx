@@ -1,1 +1,0 @@
-export default function AIAssistant() { return <div className='space-y-6'><h1 className='text-3xl font-bold'>AI Assistant</h1><p className='text-muted-foreground'>Ask anything about marketing. Coming soon.</p></div> }
